@@ -6,7 +6,7 @@ An IoT-based forest monitoring system designed to monitor environmental conditio
 
 Watch the project overview:
 
-[▶️ View Demonstration Video](https://github.com/nimrafaryal/iot-based-forest-network/blob/main/project_overview.mp4)]
+[▶️ View Demonstration Video](https://github.com/nimrafaryal/iot-based-forest-network/blob/main/project_overview.mp4)
 
 ## 📌 About the Project
 
