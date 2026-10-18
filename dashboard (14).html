@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forest Monitoring System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1f17; --panel: #142c20; --panel-light: #1c3a2a;
+    --accent: #5fbf78; --accent-soft: #9fd9b0; --warn: #e0b84f; --danger: #e0644f;
+    --text: #e8f3ec; --muted: #7fa890; --border: #234a35;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ---------- LOGIN SCREEN ---------- */
+  #loginScreen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+  }
+  .login-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 40px; width: 360px;
+  }
+  .login-box h2 { margin: 0 0 6px; color: var(--accent-soft); }
+  .login-box p.sub { color: var(--muted); font-size: 0.85em; margin-bottom: 24px; }
+  .login-box label { display: block; font-size: 0.85em; color: var(--muted); margin-bottom: 4px; margin-top: 14px; }
+  .login-box input {
+    width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 0.95em;
+  }
+  .role-toggle { display: flex; gap: 8px; margin-top: 14px; }
+  .role-btn {
+    flex: 1; padding: 10px; text-align: center; border-radius: 6px; border: 1px solid var(--border);
+    cursor: pointer; color: var(--muted); font-size: 0.88em;
+  }
+  .role-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(95,191,120,0.1); }
+  .login-btn {
+    margin-top: 22px; width: 100%; padding: 11px; border: none; border-radius: 6px;
+    background: var(--accent); color: #08130d; font-weight: 600; cursor: pointer; font-size: 0.95em;
+  }
+  .login-error { color: var(--danger); font-size: 0.85em; margin-top: 12px; display: none; }
+  .login-hint { color: var(--muted); font-size: 0.75em; margin-top: 18px; line-height: 1.4; }
+
+  /* ---------- MAIN APP ---------- */
+  #app { display: none; min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--panel); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; }
+  .sidebar .logo { font-size: 1.1em; font-weight: bold; color: var(--accent-soft); padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .sidebar .menu-item { padding: 12px 20px; cursor: pointer; color: var(--muted); border-left: 3px solid transparent; }
+  .sidebar .menu-item.active { color: var(--text); border-left: 3px solid var(--accent); background: var(--panel-light); }
+  .sidebar .menu-item:hover { color: var(--text); }
+  .role-badge { margin: 14px 20px 0; padding: 4px 10px; border-radius: 12px; font-size: 0.72em; display: inline-block; }
+  .role-badge.Admin { background: rgba(224,184,79,0.15); color: var(--warn); }
+  .role-badge.User { background: rgba(95,191,120,0.15); color: var(--accent); }
+
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { background: var(--panel); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .topbar .title { font-size: 1.15em; font-weight: 600; }
+  .topbar .right { display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 0.9em; }
+  .logout-btn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; }
+  .content { padding: 24px; flex: 1; }
+
+  .cards-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 24px; }
+  .node-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; flex: 1; min-width: 260px; }
+  .node-card h3 { margin: 0 0 12px; color: var(--accent-soft); display: flex; justify-content: space-between; align-items: center; }
+  .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .status-dot.active { background: var(--accent); }
+  .status-dot.offline { background: var(--danger); }
+  .metric-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-label { color: var(--muted); font-size: 0.9em; }
+  .metric-value { font-weight: 600; }
+  .metric-value.warn { color: var(--warn); }
+  .metric-value.danger { color: var(--danger); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin-bottom: 24px; }
+  .panel h3 { margin-top: 0; color: var(--accent-soft); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.88em; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  .badge { padding: 3px 10px; border-radius: 12px; font-size: 0.8em; }
+  .badge.active { background: rgba(95,191,120,0.15); color: var(--accent); }
+  .badge.offline { background: rgba(224,100,79,0.15); color: var(--danger); }
+
+  .alert-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .alert-item:last-child { border-bottom: none; }
+  .alert-icon { font-size: 1.1em; }
+  .alert-text .type { font-weight: 600; }
+  .alert-text .meta { color: var(--muted); font-size: 0.82em; }
+
+  .charts-row { display: flex; gap: 18px; flex-wrap: wrap; }
+  .chart-box { flex: 1; min-width: 320px; height: 280px; }
+
+  #connError { color: var(--danger); font-size: 0.9em; margin-top: 10px; }
+  .table-scroll { overflow-x: auto; }
+  .admin-note { color: var(--muted); font-size: 0.8em; margin-bottom: 10px; }
+  .view-section { display: none; }
+  .view-section.active { display: block; }
+
+  @keyframes flashDanger { 0%,100% { background: rgba(224,100,79,0.18); } 50% { background: rgba(224,100,79,0.38); } }
+  @keyframes flashWarn { 0%,100% { background: rgba(224,184,79,0.15); } 50% { background: rgba(224,184,79,0.30); } }
+  .risk-banner-item {
+    display: flex; justify-content: space-between; align-items: center;
+    border-radius: 10px; padding: 14px 20px; margin-bottom: 12px;
+    border: 1px solid var(--border); font-weight: 600;
+  }
+  .risk-banner-item.danger { animation: flashDanger 1s infinite; border-color: var(--danger); }
+  .risk-banner-item.warn { animation: flashWarn 1.4s infinite; border-color: var(--warn); }
+  .risk-banner-item .loc { font-size: 0.95em; }
+  .risk-banner-item .lvl { font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN SCREEN ================= -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>🌲 Forest Monitor</h2>
+    <p class="sub">Sign in to view the monitoring system</p>
+
+    <div class="role-toggle">
+      <div class="role-btn selected" id="roleAdminBtn" onclick="selectRole('Admin')">Administrator</div>
+      <div class="role-btn" id="roleUserBtn" onclick="selectRole('User')">User</div>
+    </div>
+
+    <label>Email</label>
+    <input type="email" id="loginEmail" placeholder="admin@forest.com">
+
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="••••••••">
+
+    <button class="login-btn" onclick="doLogin()">Log In</button>
+    <div class="login-error" id="loginError">Invalid email or password.</div>
+
+    <div style="text-align:center;margin-top:16px;font-size:0.85em;color:var(--muted);">
+      New user? <a href="#" style="color:var(--accent);" onclick="showSignup()">Sign up</a>
+    </div>
+
+    <div class="login-hint">
+      Demo accounts — Admin: admin@forest.com / admin123<br>
+      User: officer@forest.com / user123
+    </div>
+  </div>
+</div>
+
+<!-- ================= SIGN UP SCREEN ================= -->
+<div id="signupScreen" style="display:none; align-items:center; justify-content:center; min-height:100vh;">
+  <div class="login-box">
+    <h2>🌲 Create Account</h2>
+    <p class="sub">Sign up — an Administrator must approve your account before you can log in.</p>
+
+    <label>Full Name</label>
+    <input type="text" id="signupName" placeholder="Your name">
+
+    <label>Email</label>
+    <input type="email" id="signupEmail" placeholder="you@forest.com">
+
+    <label>Password</label>
+    <input type="password" id="signupPassword" placeholder="••••••••">
+
+    <button class="login-btn" onclick="doSignup()">Create Account</button>
+    <div class="login-error" id="signupError"></div>
+    <div class="login-error" id="signupSuccess" style="color:var(--accent); display:none;"></div>
+
+    <div style="text-align:center;margin-top:16px;font-size:0.85em;color:var(--muted);">
+      Already have an account? <a href="#" style="color:var(--accent);" onclick="showLogin()">Log in</a>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MAIN APP ================= -->
+<div id="app">
+  <div class="layout">
+    <div class="sidebar">
+      <div class="logo">🌲 Forest Monitor</div>
+      <div class="menu-item active" data-view="dashboardView" onclick="switchView('dashboardView', this)">Dashboard</div>
+      <div class="menu-item" data-view="alertsView" onclick="switchView('alertsView', this)">Alerts</div>
+      <div class="menu-item" id="dbMenuItem" data-view="databaseView" onclick="switchView('databaseView', this)" style="display:none;">Database (Admin)</div>
+      <div class="menu-item" id="usersMenuItem" data-view="usersView" onclick="switchView('usersView', this)" style="display:none;">Manage Users</div>
+      <div id="roleBadgeWrap"></div>
+    </div>
+
+    <div class="main">
+      <div class="topbar">
+        <div class="title">Forest Monitoring System</div>
+        <div class="right">
+          <span id="userName"></span>
+          <span id="dateTime"></span>
+          <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- DASHBOARD VIEW (Admin + User) -->
+        <div class="view-section active" id="dashboardView">
+          <div id="liveRiskBanner"></div>
+          <div class="cards-row" id="cardsRow"></div>
+
+          <div class="panel">
+            <h3>Node Status</h3>
+            <table>
+              <thead><tr><th>Node ID</th><th>Location</th><th>Status</th><th>Last Update</th></tr></thead>
+              <tbody id="nodeTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3>Trends</h3>
+            <div class="charts-row">
+              <div class="chart-box"><canvas id="tempChart"></canvas></div>
+              <div class="chart-box"><canvas id="co2Chart"></canvas></div>
+            </div>
+          </div>
+
+          <div id="connError"></div>
+        </div>
+
+        <!-- ALERTS VIEW (Admin + User) -->
+        <div class="view-section" id="alertsView">
+          <div class="panel">
+            <h3>Alerts</h3>
+            <div id="alertsList">Loading alerts...</div>
+          </div>
+        </div>
+
+        <!-- DATABASE VIEW (Admin only) -->
+        <div class="view-section" id="databaseView">
+          <div class="panel">
+            <h3>Database Tables</h3>
+            <div class="admin-note">Raw backend data — visible to Administrators only.</div>
+            <div class="role-toggle" style="margin-bottom:16px;">
+              <div class="role-btn selected" onclick="loadAdminTable('sensor_readings', this)">sensor_readings</div>
+              <div class="role-btn" onclick="loadAdminTable('sensor_nodes', this)">sensor_nodes</div>
+              <div class="role-btn" onclick="loadAdminTable('alerts', this)">alerts</div>
+              <div class="role-btn" onclick="loadAdminTable('users', this)">users</div>
+              <div class="role-btn" onclick="loadAdminTable('gateway', this)">gateway</div>
+            </div>
+            <div class="table-scroll">
+              <table id="adminTable"><thead></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- USERS VIEW (Admin only) -->
+        <div class="view-section" id="usersView">
+          <div class="panel">
+            <h3>Add New User</h3>
+            <label style="display:block;font-size:0.85em;color:var(--muted);margin-bottom:4px;">Name</label>
+            <input type="text" id="newUserName" placeholder="Full name" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:10px;">
+
+            <label style="display:block;font-size:0.85em;color:var(--muted);margin-bottom:4px;">Email</label>
+            <input type="email" id="newUserEmail" placeholder="name@forest.com" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:10px;">
+
+            <label style="display:block;font-size:0.85em;color:var(--muted);margin-bottom:4px;">Password</label>
+            <input type="password" id="newUserPassword" placeholder="••••••••" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:10px;">
+
+            <label style="display:block;font-size:0.85em;color:var(--muted);margin-bottom:4px;">Role</label>
+            <select id="newUserRole" style="width:100%;max-width:320px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:14px;">
+              <option value="User">User</option>
+              <option value="Admin">Admin</option>
+            </select>
+            <br>
+            <button class="logout-btn" style="background:var(--accent);color:#08130d;border:none;font-weight:600;" onclick="addUser()">Add User</button>
+            <div id="addUserMsg" style="margin-top:10px;font-size:0.85em;"></div>
+          </div>
+
+          <div class="panel" id="pendingPanel" style="display:none;">
+            <h3>Pending Approval</h3>
+            <div class="admin-note">New sign-ups waiting for approval before they can log in.</div>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Requested</th><th></th></tr></thead>
+                <tbody id="pendingTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Existing Users</h3>
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Created</th><th></th></tr></thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "http://10.36.213.135:5000/api";
+  let currentUser = null;
+
+  // ---------------- LOGIN ----------------
+  let selectedRole = "Admin";
+  function selectRole(role) {
+    selectedRole = role;
+    document.getElementById("roleAdminBtn").classList.toggle("selected", role === "Admin");
+    document.getElementById("roleUserBtn").classList.toggle("selected", role === "User");
+  }
+
+  async function doLogin() {
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const errEl = document.getElementById("loginError");
+    errEl.style.display = "none";
+
+    try {
+      const res = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        errEl.innerText = data.message || "Invalid email or password.";
+        errEl.style.display = "block";
+        return;
+      }
+
+      currentUser = data; // {name, role, user_id}
+      sessionStorage.setItem("forestUser", JSON.stringify(data));
+      enterApp(data);
+    } catch (err) {
+      errEl.innerText = "Could not reach server. Check API connection.";
+      errEl.style.display = "block";
+    }
+  }
+
+  function showSignup() {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("signupScreen").style.display = "flex";
+  }
+  function showLogin() {
+    document.getElementById("signupScreen").style.display = "none";
+    document.getElementById("loginScreen").style.display = "flex";
+  }
+
+  function isValidEmail(email) {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  }
+
+  async function doSignup() {
+    const name = document.getElementById("signupName").value.trim();
+    const email = document.getElementById("signupEmail").value.trim();
+    const password = document.getElementById("signupPassword").value;
+    const errEl = document.getElementById("signupError");
+    const okEl = document.getElementById("signupSuccess");
+    errEl.style.display = "none"; okEl.style.display = "none";
+
+    if (!name || !email || !password) {
+      errEl.innerText = "Please fill in all fields.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!isValidEmail(email)) {
+      errEl.innerText = "Please enter a valid email address (e.g. yourname@gmail.com).";
+      errEl.style.display = "block";
+      return;
+    }
+    if (password.length < 6) {
+      errEl.innerText = "Password must be at least 6 characters.";
+      errEl.style.display = "block";
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        okEl.innerText = data.message;
+        okEl.style.display = "block";
+        document.getElementById("signupName").value = "";
+        document.getElementById("signupEmail").value = "";
+        document.getElementById("signupPassword").value = "";
+      } else {
+        errEl.innerText = data.message || "Could not create account.";
+        errEl.style.display = "block";
+      }
+    } catch (err) {
+      errEl.innerText = "Could not reach server.";
+      errEl.style.display = "block";
+    }
+  }
+
+  function enterApp(user) {
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("userName").innerText = user.name;
+
+    const badgeWrap = document.getElementById("roleBadgeWrap");
+    badgeWrap.innerHTML = `<div class="role-badge ${user.role}">${user.role}</div>`;
+
+    if (user.role === "Admin") {
+      document.getElementById("dbMenuItem").style.display = "block";
+      document.getElementById("usersMenuItem").style.display = "block";
+    } else {
+      document.getElementById("dbMenuItem").style.display = "none";
+      document.getElementById("usersMenuItem").style.display = "none";
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 4000);
+  }
+
+  function logout() {
+    sessionStorage.removeItem("forestUser");
+    location.reload();
+  }
+
+  // Restore session if already logged in (until tab closes)
+  window.addEventListener("load", () => {
+    const saved = sessionStorage.getItem("forestUser");
+    if (saved) {
+      currentUser = JSON.parse(saved);
+      enterApp(currentUser);
+    }
+  });
+
+  // ---------------- VIEW SWITCHING ----------------
+  function switchView(viewId, el) {
+    document.querySelectorAll(".view-section").forEach(v => v.classList.remove("active"));
+    document.getElementById(viewId).classList.add("active");
+    document.querySelectorAll(".menu-item").forEach(m => m.classList.remove("active"));
+    el.classList.add("active");
+    if (viewId === "usersView") loadUsers();
+  }
+
+  // ---------------- CLOCK ----------------
+  function updateClock() {
+    document.getElementById("dateTime").innerText = new Date().toLocaleString();
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  function tempClass(t) { if (t == null) return ""; if (t >= 45) return "danger"; if (t >= 38) return "warn"; return ""; }
+  function co2Class(c) { if (c == null) return ""; if (c >= 1000) return "danger"; if (c >= 700) return "warn"; return ""; }
+
+  function riskLabel(temp, co2, hum) {
+    if (temp == null && co2 == null && hum == null) return { text: "Unknown", cls: "" };
+    if ((temp != null && temp >= 45) || (co2 != null && co2 >= 1000)) return { text: "Danger", cls: "danger" };
+    if ((temp != null && temp >= 38) || (co2 != null && co2 >= 700) || (hum != null && hum >= 85)) return { text: "Warning", cls: "warn" };
+    return { text: "Normal", cls: "" };
+  }
+
+  // A node is only "Active" if its last reading arrived within this window
+  const ACTIVE_THRESHOLD_SECONDS = 15;
+
+  function computeActive(recordedAt) {
+    if (!recordedAt) return false;
+    const ageMs = Date.now() - new Date(recordedAt).getTime();
+    return ageMs < ACTIVE_THRESHOLD_SECONDS * 1000;
+  }
+
+  // ---------------- ALERT SOUND ----------------
+  let audioCtx = null;
+  function beep() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.15;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) { /* ignore if audio not allowed yet */ }
+  }
+
+  let previousDangerNodes = new Set();
+  function checkAndPlayAlertSound(currentDangerNodeIds) {
+    let isNewDanger = false;
+    currentDangerNodeIds.forEach(id => {
+      if (!previousDangerNodes.has(id)) isNewDanger = true;
+    });
+    if (isNewDanger) {
+      beep();
+      setTimeout(beep, 350);
+    }
+    previousDangerNodes = currentDangerNodeIds;
+  }
+
+  // ---------------- DASHBOARD DATA ----------------
+  async function loadLatest() {
+    try {
+      const res = await fetch(`${API_BASE}/latest`);
+      const nodes = await res.json();
+      document.getElementById("connError").innerText = "";
+
+      const cardsRow = document.getElementById("cardsRow");
+      const tableBody = document.getElementById("nodeTableBody");
+      cardsRow.innerHTML = ""; tableBody.innerHTML = "";
+
+      const isAdmin = currentUser && currentUser.role === "Admin";
+      const bannerEl = document.getElementById("liveRiskBanner");
+      let bannerHTML = "";
+      const dangerNodeIds = new Set();
+
+      nodes.forEach(n => {
+        const risk = riskLabel(n.temperature, n.co2_level, n.humidity);
+        if (risk.cls === "danger") dangerNodeIds.add(n.node_id);
+
+        if (isAdmin && risk.cls) {
+          const icon = risk.cls === "danger" ? "🔥" : "⚠️";
+          const reasons = [];
+          if (n.temperature != null && n.temperature >= 38) reasons.push(`Temp ${n.temperature}°C`);
+          if (n.co2_level != null && n.co2_level >= 700) reasons.push(`CO2 ${n.co2_level}ppm`);
+          if (n.humidity != null && n.humidity >= 80) reasons.push(`Humidity ${n.humidity}%`);
+          bannerHTML += `
+            <div class="risk-banner-item ${risk.cls}">
+              <span class="loc">${icon} ${n.location} (Node ${n.node_id})</span>
+              <span class="lvl">${risk.text.toUpperCase()} ${reasons.length ? '— ' + reasons.join(', ') : ''}</span>
+            </div>`;
+        }
+      });
+      if (isAdmin) bannerEl.innerHTML = bannerHTML;
+      checkAndPlayAlertSound(dangerNodeIds);
+
+      nodes.forEach(n => {
+        const isActive = computeActive(n.recorded_at);
+        const statusLabel = isActive ? "Active" : "Inactive";
+
+        if (isAdmin) {
+          // ADMIN VIEW: full numeric technical detail
+          cardsRow.innerHTML += `
+            <div class="node-card">
+              <h3>Node ${n.node_id} <span><span class="status-dot ${isActive ? 'active' : 'offline'}"></span>${statusLabel}</span></h3>
+              <div class="metric-row"><span class="metric-label">Temperature</span><span class="metric-value ${tempClass(n.temperature)}">${n.temperature ?? '--'} °C</span></div>
+              <div class="metric-row"><span class="metric-label">Humidity</span><span class="metric-value">${n.humidity ?? '--'} %</span></div>
+              <div class="metric-row"><span class="metric-label">CO2</span><span class="metric-value ${co2Class(n.co2_level)}">${n.co2_level ?? '--'} ppm</span></div>
+            </div>`;
+        } else {
+          // USER VIEW: simplified safety status only, no raw numbers
+          const risk = riskLabel(n.temperature, n.co2_level, n.humidity);
+          cardsRow.innerHTML += `
+            <div class="node-card">
+              <h3>${n.location_name || n.location} <span><span class="status-dot ${isActive ? 'active' : 'offline'}"></span>${statusLabel}</span></h3>
+              <div style="color:var(--muted);font-size:0.78em;margin-bottom:8px;">📍 ${n.location}</div>
+              <div class="metric-row"><span class="metric-label">Environmental Risk</span><span class="metric-value ${risk.cls}">${risk.text}</span></div>
+              <div class="metric-row"><span class="metric-label">Air Quality</span><span class="metric-value ${co2Class(n.co2_level)}">${co2Class(n.co2_level) === 'danger' ? 'Poor' : co2Class(n.co2_level) === 'warn' ? 'Moderate' : 'Good'}</span></div>
+            </div>`;
+        }
+
+        // Node table: Admin sees exact location + node id, User sees just location label
+        if (isAdmin) {
+          tableBody.innerHTML += `
+            <tr>
+              <td>Node ${n.node_id}</td><td>${n.location}</td>
+              <td><span class="badge ${isActive ? 'active' : 'offline'}">${statusLabel}</span></td>
+              <td>${n.recorded_at ? new Date(n.recorded_at).toLocaleTimeString() : '--'}</td>
+            </tr>`;
+        } else {
+          tableBody.innerHTML += `
+            <tr>
+              <td>${n.location}</td><td>—</td>
+              <td><span class="badge ${isActive ? 'active' : 'offline'}">${statusLabel}</span></td>
+              <td>${n.recorded_at ? new Date(n.recorded_at).toLocaleTimeString() : '--'}</td>
+            </tr>`;
+        }
+      });
+    } catch (err) {
+      document.getElementById("connError").innerText = "Could not reach gateway API.";
+    }
+  }
+
+  async function loadAlerts() {
+    const isAdmin = currentUser && currentUser.role === "Admin";
+    const endpoint = isAdmin ? "alerts/full" : "alerts";
+    try {
+      const res = await fetch(`${API_BASE}/${endpoint}`);
+      const alerts = await res.json();
+      const list = document.getElementById("alertsList");
+      if (alerts.length === 0) { list.innerHTML = "<div style='color:var(--muted)'>No alerts yet.</div>"; return; }
+      list.innerHTML = alerts.map(a => {
+        const icon = a.alert_type.includes("Fire") || a.alert_type.includes("Smoke") ? "🔥" :
+                     a.alert_type.includes("Temperature") ? "⚠️" : "🔌";
+        const resolveBtn = (isAdmin && a.status !== "resolved")
+          ? `<button class="logout-btn" style="margin-top:6px;padding:4px 10px;font-size:0.78em;" onclick="resolveAlert(${a.alert_id})">Mark Resolved</button>`
+          : (a.status === "resolved" ? `<span style="color:var(--accent);font-size:0.78em;">✓ Resolved</span>` : "");
+        return `<div class="alert-item"><span class="alert-icon">${icon}</span>
+          <div class="alert-text"><div class="type">${a.alert_type} — ${a.location}</div>
+          <div>${a.message}</div><div class="meta">${new Date(a.created_at).toLocaleString()}</div>
+          <div>${resolveBtn}</div></div></div>`;
+      }).join("");
+    } catch (err) { console.error(err); }
+  }
+
+  async function resolveAlert(alertId) {
+    try {
+      await fetch(`${API_BASE}/admin/alerts/${alertId}/resolve`, { method: "POST" });
+      loadAlerts();
+    } catch (err) { console.error(err); }
+  }
+
+  let tempChart, co2Chart;
+  async function loadHistory() {
+    try {
+      const res1 = await fetch(`${API_BASE}/history/1`); const data1 = await res1.json();
+      const res2 = await fetch(`${API_BASE}/history/2`); const data2 = await res2.json();
+      const labels = data1.map(d => new Date(d.recorded_at).toLocaleTimeString());
+
+      if (!tempChart) {
+        tempChart = new Chart(document.getElementById("tempChart"), {
+          type: 'line', data: { labels, datasets: [
+            { label: 'Node 1 Temp (°C)', data: data1.map(d => d.temperature), borderColor: '#5fbf78', tension: 0.3 },
+            { label: 'Node 2 Temp (°C)', data: data2.map(d => d.temperature), borderColor: '#e0b84f', tension: 0.3 }
+          ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#e8f3ec' } } },
+            scales: { x: { ticks: { color: '#7fa890' } }, y: { ticks: { color: '#7fa890' } } } } });
+        co2Chart = new Chart(document.getElementById("co2Chart"), {
+          type: 'line', data: { labels, datasets: [
+            { label: 'Node 1 CO2 (ppm)', data: data1.map(d => d.co2_level), borderColor: '#9fd9b0', tension: 0.3 },
+            { label: 'Node 2 CO2 (ppm)', data: data2.map(d => d.co2_level), borderColor: '#e0644f', tension: 0.3 }
+          ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#e8f3ec' } } },
+            scales: { x: { ticks: { color: '#7fa890' } }, y: { ticks: { color: '#7fa890' } } } } });
+      } else {
+        tempChart.data.labels = labels;
+        tempChart.data.datasets[0].data = data1.map(d => d.temperature);
+        tempChart.data.datasets[1].data = data2.map(d => d.temperature);
+        tempChart.update();
+        co2Chart.data.labels = labels;
+        co2Chart.data.datasets[0].data = data1.map(d => d.co2_level);
+        co2Chart.data.datasets[1].data = data2.map(d => d.co2_level);
+        co2Chart.update();
+      }
+    } catch (err) { console.error(err); }
+  }
+
+  // ---------------- ADMIN: RAW DATABASE VIEWER ----------------
+  async function loadAdminTable(tableName, btnEl) {
+    document.querySelectorAll("#databaseView .role-btn").forEach(b => b.classList.remove("selected"));
+    btnEl.classList.add("selected");
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/table/${tableName}`);
+      const data = await res.json();
+      const thead = document.querySelector("#adminTable thead");
+      const tbody = document.querySelector("#adminTable tbody");
+
+      thead.innerHTML = "<tr>" + data.columns.map(c => `<th>${c}</th>`).join("") + "</tr>";
+      tbody.innerHTML = data.rows.map(row =>
+        "<tr>" + row.map(v => `<td>${v ?? '--'}</td>`).join("") + "</tr>"
+      ).join("");
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function refreshAll() {
+    loadLatest();
+    loadAlerts();
+    loadHistory();
+  }
+
+  // ---------------- ADMIN: USER MANAGEMENT ----------------
+  async function loadUsers() {
+    try {
+      const res = await fetch(`${API_BASE}/admin/users`);
+      const users = await res.json();
+
+      const pending = users.filter(u => !u.approved);
+      const approved = users.filter(u => u.approved);
+
+      const pendingPanel = document.getElementById("pendingPanel");
+      if (pending.length > 0) {
+        pendingPanel.style.display = "block";
+        document.getElementById("pendingTableBody").innerHTML = pending.map(u => `
+          <tr>
+            <td>${u.user_id}</td><td>${u.name}</td><td>${u.email}</td>
+            <td>${new Date(u.created_at).toLocaleDateString()}</td>
+            <td>
+              <button class="logout-btn" style="padding:4px 10px;font-size:0.78em;border-color:var(--accent);color:var(--accent);" onclick="approveUser(${u.user_id})">Approve</button>
+              <button class="logout-btn" style="padding:4px 10px;font-size:0.78em;border-color:var(--danger);color:var(--danger);margin-left:6px;" onclick="deleteUser(${u.user_id})">Reject</button>
+            </td>
+          </tr>`).join("");
+      } else {
+        pendingPanel.style.display = "none";
+      }
+
+      document.getElementById("usersTableBody").innerHTML = approved.map(u => `
+        <tr>
+          <td>${u.user_id}</td><td>${u.name}</td><td>${u.email}</td>
+          <td><span class="role-badge ${u.role}">${u.role}</span></td>
+          <td>${new Date(u.created_at).toLocaleDateString()}</td>
+          <td>${u.role === "Admin"
+            ? `<span style="color:var(--muted);font-size:0.78em;">Protected</span>`
+            : `<button class="logout-btn" style="padding:4px 10px;font-size:0.78em;border-color:var(--danger);color:var(--danger);" onclick="deleteUser(${u.user_id})">Delete</button>`
+          }</td>
+        </tr>`).join("");
+    } catch (err) { console.error(err); }
+  }
+
+  async function approveUser(userId) {
+    try {
+      await fetch(`${API_BASE}/admin/users/${userId}/approve`, { method: "POST" });
+      loadUsers();
+    } catch (err) { console.error(err); }
+  }
+
+  async function addUser() {
+    const name = document.getElementById("newUserName").value.trim();
+    const email = document.getElementById("newUserEmail").value.trim();
+    const password = document.getElementById("newUserPassword").value;
+    const role = document.getElementById("newUserRole").value;
+    const msgEl = document.getElementById("addUserMsg");
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/users`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role })
+      });
+      const data = await res.json();
+      if (data.success) {
+        msgEl.style.color = "var(--accent)";
+        msgEl.innerText = "User added successfully.";
+        document.getElementById("newUserName").value = "";
+        document.getElementById("newUserEmail").value = "";
+        document.getElementById("newUserPassword").value = "";
+        loadUsers();
+      } else {
+        msgEl.style.color = "var(--danger)";
+        msgEl.innerText = data.message || "Failed to add user.";
+      }
+    } catch (err) {
+      msgEl.style.color = "var(--danger)";
+      msgEl.innerText = "Could not reach server.";
+    }
+  }
+
+  async function deleteUser(userId) {
+    if (!confirm("Delete this user? This cannot be undone.")) return;
+    try {
+      await fetch(`${API_BASE}/admin/users/${userId}`, { method: "DELETE" });
+      loadUsers();
+    } catch (err) { console.error(err); }
+  }
+</script>
+
+</body>
+</html>
