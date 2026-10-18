@@ -2,6 +2,12 @@
 
 An IoT-based forest monitoring system designed to monitor environmental conditions and support early forest fire-risk detection using wireless sensor nodes and a centralized monitoring dashboard.
 
+## 🎥 Project Overview
+
+Watch the project overview:
+
+[▶️ View Demonstration Video](https://github.com/nimrafaryal/iot-based-forest-network/blob/main/project_overview.mp4)]
+
 ## 📌 About the Project
 
 This project was developed as our **Final Year Project (FYP)** at the **University of Engineering & Technology (UET), Taxila**.
