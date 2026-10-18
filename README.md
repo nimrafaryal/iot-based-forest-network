@@ -54,8 +54,7 @@ The dashboard provides a visual representation of the environmental parameters c
 
 Watch the project demonstration:
 
-[▶️ View Demonstration Video](WhatsApp Video 2026-07-14 at 4.35.23 PM.mp4)
-
+[▶️ View Demonstration Video](https://github.com/nimrafaryal/iot-based-forest-network/blob/main/WhatsApp%20Video%202026-07-14%20at%204.35.23%20PM.mp4)
 ## 🎯 Project Objectives
 
 - Monitor environmental parameters using IoT-based sensor nodes.
