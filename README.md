@@ -42,7 +42,7 @@ Sensors → Wireless Sensor Nodes → Raspberry Pi Gateway → PostgreSQL Databa
 
 The hardware setup demonstrates the physical components used to implement the forest monitoring network.
 
-![Forest Monitoring System Hardware](WhatsApp%20Image%202026-07-14%20at%204.34.29%20PM.jpeg)
+![Forest Monitoring System Hardware](image_1.jpeg)
 
 ## 📊 Monitoring Dashboard
 
